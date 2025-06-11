@@ -357,3 +357,9 @@ Java_me_weishu_kernelsu_Natives_getUserName(JNIEnv *env, jobject thiz, jint uid)
     }
     return nullptr;
 }
+
+extern "C" 
+JNIEXPORT jboolean JNICALL
+Java_me_weishu_kernelsu_Natives_isKPMEnabled(JNIEnv *env, jobject) {
+    return is_KPM_enable();
+}

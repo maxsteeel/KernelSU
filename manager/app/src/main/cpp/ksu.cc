@@ -221,3 +221,8 @@ bool is_enhanced_security_enabled() {
     }
     return value != 0;
 }
+
+bool is_KPM_enable() {
+    bool enabled = false;
+    return ksuctl(KSU_FEATURE_ENABLE_KPM, &enabled), enabled;
+}

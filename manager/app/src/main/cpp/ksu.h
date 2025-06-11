@@ -85,6 +85,7 @@ enum ksu_feature_id {
     KSU_FEATURE_KERNEL_UMOUNT = 1,
     KSU_FEATURE_ENHANCED_SECURITY = 2,
     KSU_FEATURE_AVC_SPOOF = 10003,
+    KSU_FEATURE_ENABLE_KPM = 100,
 };
 
 // Generic feature API
@@ -199,5 +200,7 @@ inline std::pair<int, int> legacy_get_info() {
     prctl(0xDEADBEEF, 2, &version, &flags, &result);
     return {version, flags};
 }
+
+bool is_KPM_enable();
 
 #endif //KERNELSU_KSU_H
