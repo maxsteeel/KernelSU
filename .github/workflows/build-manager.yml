@@ -27,6 +27,17 @@ jobs:
     uses: ./.github/workflows/build-lkm.yml
     secrets: inherit
 
+  build-kpmmgr:
+      needs: build-lkm
+      strategy:
+        matrix:
+          include:
+            - target: aarch64-linux-android
+              os: ubuntu-latest
+      uses: ./.github/workflows/kpmmgr.yml
+      with:
+        os: ${{ matrix.os }}
+
   build-ksud:
     needs: build-lkm
     strategy:
@@ -104,6 +115,17 @@ jobs:
         with:
           name: ksud-x86_64-linux-android
           path: .
+
+      - name: Download arm64 kpmmgr
+        uses: actions/download-artifact@v4
+        with:
+          name: kpmmgr-aarch64-linux-android
+          path: .
+
+      - name: Copy kpmmgr to app jniLibs
+        run: |
+            mkdir -p app/src/main/jniLibs/arm64-v8a
+            cp -f ../arm64-v8a/kpmmgr ../manager/app/src/main/jniLibs/arm64-v8a/libkpmmgr.so
 
       - name: Copy ksud to app jniLibs
         run: |
