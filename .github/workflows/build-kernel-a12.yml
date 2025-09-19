@@ -21,16 +21,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - sub_level: 209
-            os_patch_level: 2024-05
-          - sub_level: 218
-            os_patch_level: 2024-08
-          - sub_level: 226
-            os_patch_level: 2024-11
-          - sub_level: 233
-            os_patch_level: 2025-02
-          - sub_level: 296
-            os_patch_level: 2025-09
+          - sub_level: 299
+            os_patch_level: lts
     uses: ./.github/workflows/gki-kernel.yml
     secrets: inherit
     with:
@@ -116,7 +108,7 @@ jobs:
     uses: ./.github/workflows/gki-kernel.yml
     with:
       version: android12-5.4
-      version_name: android12-5.14.296
+      version_name: android12-5.14.299
       tag: android12-5.4
-      os_patch_level: 2025-09
+      os_patch_level: lts
       patch_path: "5.4"
