@@ -14,7 +14,7 @@ on:
       - ".github/workflows/gki-kernel.yml"
       - ".github/scripts/build-a12.sh"
       - "kernel/**"
-  workflow_call:
+  workflow_dispatch:
 jobs:
   build-kernel:
     if: github.event_name != 'pull_request' && github.ref != 'refs/heads/checkci'
@@ -34,9 +34,9 @@ jobs:
     uses: ./.github/workflows/gki-kernel.yml
     secrets: inherit
     with:
-      version: android12-5.10
-      version_name: android12-5.10.${{ matrix.sub_level }}
-      tag: android12-5.10-${{ matrix.os_patch_level }}
+      version: android12-5.4
+      version_name: android12-5.4.${{ matrix.sub_level }}
+      tag: android12-5.4-${{ matrix.os_patch_level }}
       os_patch_level: ${{ matrix.os_patch_level }}
       patch_path: "5.10"
   
@@ -67,7 +67,7 @@ jobs:
       - name: Download prebuilt toolchain
         run: |
           AOSP_MIRROR=https://android.googlesource.com
-          BRANCH=main-kernel-build-2024
+          BRANCH=main-kernel-build-2021
           git clone $AOSP_MIRROR/platform/prebuilts/build-tools -b $BRANCH --depth 1 build-tools
           git clone $AOSP_MIRROR/kernel/prebuilts/build-tools -b $BRANCH --depth 1 kernel-build-tools
           git clone $AOSP_MIRROR/platform/system/tools/mkbootimg -b $BRANCH --depth 1
@@ -109,14 +109,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: boot-images-android12
-          path: Image-android12*/*.img.gz
+          path: Image*
 
   check-build-kernel:
     if: (github.event_name == 'pull_request' && !github.event.pull_request.draft) || github.ref == 'refs/heads/checkci'
     uses: ./.github/workflows/gki-kernel.yml
     with:
-      version: android12-5.10
-      version_name: android12-5.10.223
-      tag: android12-5.10-2024-11
+      version: android12-5.4
+      version_name: android12-5.4.223
+      tag: android12-5.4-2024-11
       os_patch_level: 2024-11
-      patch_path: "5.10"
+      patch_path: "5.4"
