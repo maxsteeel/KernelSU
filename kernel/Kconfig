@@ -170,6 +170,12 @@ config KSU_SUSFS_OPEN_REDIRECT
       - Effective only on processes with uid < 2000.
       - Please be reminded that process with open access to the target and redirected path can be detected.
 
+config KPM
+	tristate "Kernel-Patch function support"
+	default y
+	help
+	  Enable kernel-level patches on Android System.
+
 endmenu
 
 endmenu
