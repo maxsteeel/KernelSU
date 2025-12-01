@@ -36,6 +36,7 @@ jobs:
               os: ubuntu-latest
       uses: ./.github/workflows/kpmmgr.yml
       with:
+        target: ${{ matrix.target }}
         os: ${{ matrix.os }}
 
   build-ksud:
