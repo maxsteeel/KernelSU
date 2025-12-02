@@ -31,6 +31,11 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +44,7 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -46,6 +52,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -68,7 +75,7 @@ import me.weishu.kernelsu.ui.util.*
 import me.weishu.kernelsu.ui.viewmodel.KPMViewModel
 import androidx.compose.material3.ElevatedCard
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Destination<RootGraph>
 @Composable
 fun KPMScreen(navigator: DestinationsNavigator) {
@@ -115,35 +122,74 @@ fun KPMScreen(navigator: DestinationsNavigator) {
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+    val pullToRefreshState = rememberPullToRefreshState()
+    val onRefresh: () -> Unit = { scope.launch { viewModel.fetchKPMList() } }
+    val scaleFraction = {
+        if (viewModel.isRefreshing) 1f
+        else 1f // keep simple; could be animated like Module
+    }
+
+    Scaffold(
+        modifier = Modifier.pullToRefresh(
+            state = pullToRefreshState,
+            isRefreshing = viewModel.isRefreshing,
+            onRefresh = onRefresh
+        ),
+        topBar = {
+            SearchAppBar(
+                title = { Text("KPM") },
+                searchText = viewModel.search,
+                onSearchTextChange = { viewModel.search = it },
+                onClearClick = { viewModel.search = androidx.compose.ui.text.input.TextFieldValue("") },
+                actionsContent = {}, // no extra actions for now
+                scrollBehavior = scrollBehavior
+            )
+        },
+        floatingActionButton = {
+            if (fullFeatured) {
+                ExtendedFloatingActionButton(
+                    onClick = { installKPMLauncher.launch("*/*") },
+                    icon = { Icon(Icons.Default.Add, contentDescription = "Install KPM") },
+                    text = { Text("Install") }
+                )
+            }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackBarHost) }
+    ) { innerPadding ->
+
         if (!fullFeatured) {
-            Card(
+            ElevatedCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
             ) {
-                Text(
-                    text = if (isSafeMode) {
-                        "KPM functionality is disabled in safe mode"
-                    } else {
-                        "KPM requires root access and proper kernel support"
-                    },
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Column(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = if (isSafeMode) {
+                            "KPM functionality is disabled in safe mode"
+                        } else {
+                            "KPM requires root access and proper kernel support"
+                        },
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
 
         KPMList(
             navigator = navigator,
             viewModel = viewModel,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            boxModifier = Modifier.padding(innerPadding),
+            pullToRefreshState = pullToRefreshState,
+            isRefreshing = viewModel.isRefreshing,
             onInstallKPM = { installKPMLauncher.launch("*/*") },
             onUnloadKPM = { kpm ->
                 scope.launch {
@@ -160,27 +206,39 @@ fun KPMScreen(navigator: DestinationsNavigator) {
             },
             context = context,
             snackBarHost = snackBarHost,
-            enabled = fullFeatured
+            enabled = fullFeatured,
+            scaleFraction = scaleFraction(),
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun KPMList(
     navigator: DestinationsNavigator,
     viewModel: KPMViewModel,
     modifier: Modifier = Modifier,
+    boxModifier: Modifier = Modifier,
+    pullToRefreshState: androidx.compose.material3.pulltorefresh.PullToRefreshState,
+    isRefreshing: Boolean,
     onInstallKPM: () -> Unit,
     onUnloadKPM: (KPMViewModel.KPMInfo) -> Unit,
     context: Context,
     snackBarHost: SnackbarHostState,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    scaleFraction: Float = 1f,
 ) {
     val listState = rememberLazyListState()
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var isSearching by rememberSaveable { mutableStateOf(false) }
 
+    val installLabel = stringResource(R.string.kpm_load)
+
+    ExtendedFloatingActionButton(
+        onClick = onInstallKPM,
+        icon = { Icon(Icons.Default.Add, contentDescription = installLabel) },
+        text = { Text(installLabel) }
+    )
     val filteredKPMList = remember(viewModel.kpmList, searchQuery) {
         if (searchQuery.isBlank()) {
             viewModel.kpmList
@@ -192,15 +250,20 @@ private fun KPMList(
         }
     }
 
-    PullToRefreshBox(
-        isRefreshing = viewModel.isRefreshing,
-        onRefresh = { viewModel.fetchKPMList() },
-        modifier = modifier
+    Box(modifier = modifier
+        .fillMaxSize(),
     ) {
         LazyColumn(
             state = listState,
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = remember {
+                PaddingValues(
+                    start = 16.dp,
+                    top = 16.dp,
+                    end = 16.dp,
+                    bottom = 16.dp + 56.dp + 16.dp + 48.dp + 6.dp // match Module.kt spacing for FAB + snackbar
+                )
+            },
         ) {
             // Header with install button
             item {
@@ -216,12 +279,9 @@ private fun KPMList(
                     )
                     
                     if (enabled) {
-                        FloatingActionButton(
-                            onClick = onInstallKPM,
-                            modifier = Modifier.size(48.dp),
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Install KPM")
+                        // keep only small FAB in header if needed, otherwise rely on Scaffold FAB
+                        IconButton(onClick = onInstallKPM) {
+                            Icon(Icons.Default.Add, contentDescription = installLabel)
                         }
                     }
                 }
@@ -243,44 +303,51 @@ private fun KPMList(
             // KPM modules list
             if (filteredKPMList.isEmpty() && !viewModel.isLoading) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        TonalCard(
+                        modifier = Modifier
+                            .widthIn(max = 560.dp)
+                            .fillMaxWidth(0.95f)
                         ) {
-                            Icon(
-                                Icons.Default.Memory,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = if (searchQuery.isBlank()) {
-                                    "No KPM modules installed"
-                                } else {
-                                    "No modules match your search"
-                                },
-                                style = MaterialTheme.typography.titleMedium,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = if (searchQuery.isBlank()) {
-                                    "Install KPM modules to extend kernel functionality"
-                                } else {
-                                    "Try a different search term"
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.Memory,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = if (searchQuery.isBlank()) {
+                                        "No KPM modules installed"
+                                    } else {
+                                        "No modules match your search"
+                                    },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = if (searchQuery.isBlank()) {
+                                        "Install KPM modules to extend kernel functionality"
+                                    } else {
+                                        "Try a different search term"
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -294,6 +361,13 @@ private fun KPMList(
                 }
             }
         }
+    Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .scale(scaleFraction)
+        ) {
+            PullToRefreshDefaults.LoadingIndicator(state = pullToRefreshState, isRefreshing = isRefreshing)
+        }
     }
 }
 
@@ -305,6 +379,28 @@ fun KPMItem(
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     var showDropdown by remember { mutableStateOf(false) }
+
+    TonalCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(text = kpm.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(text = "v${kpm.version}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Row {
+                    IconButton(onClick = { /* show details */ }) { Icon(Icons.Outlined.Info, contentDescription = null) }
+                    IconButton(onClick = { if (enabled) onUnload() }) { Icon(Icons.Outlined.Delete, contentDescription = null) }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Text(text = kpm.description, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable
@@ -351,7 +447,7 @@ fun KPMItemPreview() {
                 name = "Sample KPM Module",
                 version = "1.0.0",
                 description = "This is a sample KPM module for demonstration purposes",
-                state = "loaded",
+                state = R.string.kpm_state_loaded,
                 size = 1024 * 1024,
                 refCount = 2,
                 flags = listOf("LIVE", "UNLOAD_OK")

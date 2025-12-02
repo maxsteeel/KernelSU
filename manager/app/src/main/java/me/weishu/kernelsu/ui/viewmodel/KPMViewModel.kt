@@ -3,37 +3,44 @@ package me.weishu.kernelsu.ui.viewmodel
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import me.weishu.kernelsu.Natives
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.weishu.kernelsu.Natives
 import java.io.File
 
 class KPMViewModel : ViewModel() {
 
+    companion object {
+        private const val TAG = "KPMViewModel"
+        private var _modules by mutableStateOf<List<KPMInfo>>(emptyList())
+    }
+
+    @Immutable
     data class KPMInfo(
         val id: Int,
         val name: String,
         val version: String,
         val description: String,
-        val state: String,
+        val state: Int,
         val size: Long,
         val refCount: Int,
         val flags: List<String>
     )
 
-    var kpmList by mutableStateOf<List<KPMInfo>>(emptyList())
+    var isRefreshing by mutableStateOf(false)
         private set
 
     var isLoading by mutableStateOf(false)
-        private set
-
-    var isRefreshing by mutableStateOf(false)
         private set
 
     var isNeedRefresh by mutableStateOf(true)
@@ -42,8 +49,25 @@ class KPMViewModel : ViewModel() {
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
+    var search by mutableStateOf(TextFieldValue("")) // compatible con ModuleViewModel
+
+    val kpmList by derivedStateOf {
+        val text = search.text
+        if (text.isBlank()) {
+            _modules
+        } else {
+            _modules.filter {
+                it.name.contains(text, true) || it.description.contains(text, true)
+            }
+        }
+    }
+
     init {
         fetchKPMList()
+    }
+
+    fun markNeedRefresh() {
+        isNeedRefresh = true
     }
 
     fun fetchKPMList() {
@@ -51,43 +75,58 @@ class KPMViewModel : ViewModel() {
             isLoading = true
             isRefreshing = true
             try {
-                withContext(Dispatchers.IO) {
-                    val modules = mutableListOf<KPMInfo>()
+                val modules = withContext(Dispatchers.IO) {
+                    val out = mutableListOf<KPMInfo>()
 
-                    // Get number of KPM modules
-                    val count = Natives.getKpmModuleCount()
-                    Log.d("KPMViewModel", "Found $count Kernel Patch modules")
+                    kotlin.runCatching {
+                        val count = try {
+                            Natives.getKpmModuleCount()
+                        } catch (e: Throwable) {
+                            Log.w(TAG, "getKpmModuleCount failed", e)
+                            -1
+                        }
 
-                    if (count > 0) {
-                        // Get list of all KPM modules
-                        val kpmListData = Natives.getKpmModuleList()
+                        if (count > 0) {
+                            val names = try {
+                                Natives.getKpmModuleList()
+                            } catch (e: Throwable) {
+                                Log.w(TAG, "getKpmModuleList failed", e)
+                                null
+                            }
 
-                        kpmListData?.forEach { moduleName ->
-                            // Get detailed info for each module
-                            val info = Natives.getKpmModuleInfo(moduleName)
-                            if (info != null) {
-                                modules.add(
-                                    KPMInfo(
-                                        id = modules.size + 1, // Generate ID based on index
-                                        name = info.name,
-                                        version = info.version,
-                                        description = info.description,
-                                        state = if (info.state == 1) "loaded" else "unloaded",
-                                        size = info.size,
-                                        refCount = info.refCount,
-                                        flags = emptyList() // TODO: Parse flags if needed
-                                    )
-                                )
+                            names?.forEachIndexed { idx, name ->
+                                try {
+                                    val info = Natives.getKpmModuleInfo(name)
+                                    if (info != null) {
+                                        out += KPMInfo(
+                                            id = idx + 1,
+                                            name = info.name,
+                                            version = info.version,
+                                            description = info.description,
+                                            state = info.state,
+                                            size = info.size,
+                                            refCount = info.refCount,
+                                            flags = emptyList()
+                                        )
+                                    }
+                                } catch (e: Throwable) {
+                                    Log.w(TAG, "getKpmModuleInfo failed for $name", e)
+                                }
                             }
                         }
-                    }
 
-                    kpmList = modules.sortedBy { it.name }
+                        out
+                    }.getOrElse {
+                        Log.e(TAG, "fetchKPMList: parsing native result failed", it)
+                        emptyList()
+                    }
                 }
+
+                _modules = modules.sortedBy { it.name }
                 isNeedRefresh = false
             } catch (e: Exception) {
-                Log.e("KPMViewModel", "Failed to fetch Kernel Patch modules", e)
-                errorMessage = "Failed to fetch Kernel Patch modules: ${e.message}"
+                Log.e(TAG, "Failed to fetch KPM list", e)
+                errorMessage = "Failed to fetch KPM modules: ${e.message}"
             } finally {
                 isLoading = false
                 isRefreshing = false
@@ -100,33 +139,26 @@ class KPMViewModel : ViewModel() {
             isLoading = true
             try {
                 withContext(Dispatchers.IO) {
-                    // Copy file to temporary location
                     val inputStream = context.contentResolver.openInputStream(uri)
-                    val tempFile = File(context.cacheDir, "temp_kpm_${System.currentTimeMillis()}.ko")
-
+                    val tmp = File(context.cacheDir, "kpm_${System.currentTimeMillis()}.ko")
                     inputStream?.use { input ->
-                        tempFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
+                        tmp.outputStream().use { out -> input.copyTo(out) }
                     }
 
-                    // Load the KPM module
-                    val result = Natives.loadKpmModule(tempFile.absolutePath)
-
-                    // Clean up temp file
-                    tempFile.delete()
-
-                    if (result) {
-                        Log.d("KPMViewModel", "Kernel Patch module loaded successfully")
-                        isNeedRefresh = true
-                        fetchKPMList()
-                    } else {
-                        throw Exception("Failed to load Kernel Patch module")
+                    val res = try {
+                        Natives.loadKpmModule(tmp.absolutePath)
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "loadKpmModule failed", e)
+                        false
                     }
+                    tmp.delete()
+                    if (!res) throw Exception("Failed to load KPM")
                 }
+                isNeedRefresh = true
+                fetchKPMList()
             } catch (e: Exception) {
-                Log.e("KPMViewModel", "Failed to install Kernel Patch module", e)
-                errorMessage = "Failed to install Kernel Patch module: ${e.message}"
+                Log.e(TAG, "installKPM failed", e)
+                errorMessage = "Install failed: ${e.message}"
             } finally {
                 isLoading = false
             }
@@ -137,56 +169,50 @@ class KPMViewModel : ViewModel() {
         viewModelScope.launch {
             isLoading = true
             try {
-                withContext(Dispatchers.IO) {
-                    // Find module by ID
-                    val module = kpmList.find { it.id == moduleId }
-                    val result = if (module != null) {
-                        Natives.unloadKpmModule(module.name)
-                    } else {
-                        false
-                    }
-
-                    if (result) {
-                        Log.d("KPMViewModel", "Kernel Patch module unloaded successfully")
-                        isNeedRefresh = true
-                        fetchKPMList()
-                    } else {
-                        throw Exception("Failed to unload Kernel Patch module")
-                    }
+                val success = withContext(Dispatchers.IO) {
+                    val module = _modules.find { it.id == moduleId }
+                    if (module != null) {
+                        try {
+                            Natives.unloadKpmModule(module.name)
+                        } catch (e: Throwable) {
+                            Log.e(TAG, "unloadKpmModule threw", e)
+                            false
+                        }
+                    } else false
                 }
+                if (!success) throw Exception("Failed to unload KPM")
+                isNeedRefresh = true
+                fetchKPMList()
             } catch (e: Exception) {
-                Log.e("KPMViewModel", "Failed to unload Kernel Patch module", e)
-                errorMessage = "Failed to unload Kernel Patch module: ${e.message}"
+                Log.e(TAG, "unloadKPM failed", e)
+                errorMessage = "Unload failed: ${e.message}"
             } finally {
                 isLoading = false
             }
         }
     }
 
-    fun controlKPM(moduleId: Int, operation: String, data: String = "") {
+    fun controlKPM(moduleId: Int, operation: Int, arg: Long = 0L) {
         viewModelScope.launch {
             isLoading = true
             try {
-                withContext(Dispatchers.IO) {
-                    // Find module by ID
-                    val module = kpmList.find { it.id == moduleId }
-                    val result = if (module != null) {
-                        Natives.controlKpmModule(module.name, operation.hashCode(), data.hashCode().toLong())
-                    } else {
-                        -1L
-                    }
-
-                    if (result >= 0) {
-                        Log.d("KPMViewModel", "Kernel Patch module control operation '$operation' successful")
-                        isNeedRefresh = true
-                        fetchKPMList()
-                    } else {
-                        throw Exception("Kernel Patch module control operation failed")
-                    }
+                val res = withContext(Dispatchers.IO) {
+                    val module = _modules.find { it.id == moduleId }
+                    if (module != null) {
+                        try {
+                            Natives.controlKpmModule(module.name, operation, arg)
+                        } catch (e: Throwable) {
+                            Log.e(TAG, "controlKpmModule threw", e)
+                            -1L
+                        }
+                    } else -1L
                 }
+                if (res < 0) throw Exception("control operation failed")
+                isNeedRefresh = true
+                fetchKPMList()
             } catch (e: Exception) {
-                Log.e("KPMViewModel", "Failed to control Kernel Patch module", e)
-                errorMessage = "Failed to control Kernel Patch module: ${e.message}"
+                Log.e(TAG, "controlKPM failed", e)
+                errorMessage = "Control failed: ${e.message}"
             } finally {
                 isLoading = false
             }
