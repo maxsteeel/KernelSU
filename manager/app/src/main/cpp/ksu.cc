@@ -239,3 +239,47 @@ bool is_KPM_enable() {
     bool enabled = false;
     return ksuctl(KSU_FEATURE_ENABLE_KPM, &enabled), enabled;
 }
+
+bool getKpmModuleCount(int &count) {
+    struct ksu_get_feature_cmd cmd = {};
+    cmd.feature_id = KSU_FEATURE_ENABLE_KPM;
+
+    if (ksuctl(KSU_IOCTL_GET_FEATURE, &cmd) != 0) {
+        return false;
+    }
+    if (!cmd.supported) {
+        return false;
+    }
+    count = static_cast<int>(cmd.value);
+    return true;
+}
+
+bool unloadKpmModule(int id) {
+    struct ksu_kpm_unload_module_cmd cmd = {};
+    cmd.id = id;
+    return ksuctl(KSU_IOCTL_UNLOAD_KPM_MODULE, &cmd) == 0;
+}
+
+bool loadKpmModule(int id) {
+    struct ksu_kpm_load_module_cmd cmd = {};
+    cmd.id = id;
+    return ksuctl(KSU_IOCTL_LOAD_KPM_MODULE, &cmd) == 0;
+}
+
+long controlKpmModule(int cmd, void *arg) {
+    struct ksu_kpm_control_module_cmd kpm_cmd = {};
+    kpm_cmd.cmd = cmd;
+    kpm_cmd.arg = arg;
+    return ksuctl(KSU_IOCTL_CONTROL_KPM_MODULE, &kpm_cmd);
+}
+
+bool getKpmModuleInfo(int id, struct ksu_kpm_module_info *info) {
+    if (!info) return false;
+    struct ksu_kpm_module_info cmd = {};
+    cmd.id = id;
+    if (ksuctl(KSU_IOCTL_GET_KPM_MODULE_INFO, &cmd) != 0) {
+        return false;
+    }
+    *info = cmd;
+    return true;
+}

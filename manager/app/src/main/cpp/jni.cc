@@ -372,3 +372,70 @@ JNIEXPORT jboolean JNICALL
 Java_me_weishu_kernelsu_Natives_isKPMEnabled(JNIEnv *env, jobject) {
     return is_KPM_enable();
 }
+
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_me_weishu_kernelsu_Natives_getKpmModuleList(JNIEnv *env, jobject) {
+    int count = 0;
+    if (!getKpmModuleCount(count)) {
+        // fallback: return empty list
+        count = 0;
+    }
+    auto cls = env->FindClass("java/util/ArrayList");
+    auto constructor = env->GetMethodID(cls, "<init>", "()V");
+    auto list = env->NewObject(cls, constructor);
+    // minimal: populate list with 0..count-1 (real implementation should return actual ids)
+    for (int i = 0; i < count; ++i) {
+        addIntToList(env, list, i);
+    }
+    return list;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_me_weishu_kernelsu_Natives_loadKpmModule(JNIEnv *env, jobject, jint id) {
+    return loadKpmModule(id);
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_me_weishu_kernelsu_Natives_unloadKpmModule(JNIEnv *env, jobject, jint id) {
+    return unloadKpmModule(id);
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_me_weishu_kernelsu_Natives_getKpmModuleCount(JNIEnv *env, jobject) {
+    int count = 0;
+    getKpmModuleCount(count);
+    return count;
+}
+
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_me_weishu_kernelsu_Natives_controlKpmModule(JNIEnv *env, jclass clazz, jint cmd, jlong arg) {
+    return (jlong) controlKpmModule(static_cast<int>(cmd), (void *)(uintptr_t)arg);
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_me_weishu_kernelsu_Natives_getKpmModuleInfo(JNIEnv *env, jclass clazz, jint id, jobject info) {
+    struct ksu_kpm_module_info module_info = {};
+    bool result = getKpmModuleInfo(id, &module_info);
+    if (!result) {
+        return false;
+    }
+
+    auto cls = env->GetObjectClass(info);
+    auto idField = env->GetFieldID(cls, "id", "I");
+    auto nameField = env->GetFieldID(cls, "name", "Ljava/lang/String;");
+    auto versionField = env->GetFieldID(cls, "version", "I");
+    auto loadedField = env->GetFieldID(cls, "loaded", "Z");
+
+    env->SetIntField(info, idField, module_info.id);
+    env->SetObjectField(info, nameField, env->NewStringUTF(module_info.name));
+    env->SetIntField(info, versionField, module_info.version);
+    env->SetBooleanField(info, loadedField, (module_info.flags & 0x1) != 0);
+
+    return true;
+}

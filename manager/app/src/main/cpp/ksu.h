@@ -193,6 +193,11 @@ bool is_avc_spoof_enabled();
 #define KSU_IOCTL_SET_APP_PROFILE _IOC(_IOC_WRITE, 'K', 12, 0)
 #define KSU_IOCTL_GET_FEATURE _IOC(_IOC_READ|_IOC_WRITE, 'K', 13, 0)
 #define KSU_IOCTL_SET_FEATURE _IOC(_IOC_WRITE, 'K', 14, 0)
+#define KSU_IOCTL_GET_KPM_MODULE_LIST _IOC(_IOC_READ|_IOC_WRITE, 'K', 15, 0)
+#define KSU_IOCTL_UNLOAD_KPM_MODULE _IOC(_IOC_WRITE, 'K', 16, 0)
+#define KSU_IOCTL_LOAD_KPM_MODULE _IOC(_IOC_WRITE, 'K', 17, 0)
+#define KSU_IOCTL_CONTROL_KPM_MODULE _IOC(_IOC_WRITE, 'K', 18, 0)
+#define KSU_IOCTL_GET_KPM_MODULE_INFO _IOC(_IOC_READ|_IOC_WRITE, 'K', 19, 0)
 
 bool get_allow_list(struct ksu_get_allow_list_cmd *);
 
@@ -205,5 +210,37 @@ inline std::pair<int, int> legacy_get_info() {
 }
 
 bool is_KPM_enable();
+struct getKpmModuleList {
+    uint32_t count;
+};
+
+struct ksu_kpm_unload_module_cmd {
+    int32_t id;
+};
+
+struct ksu_kpm_load_module_cmd {
+    int32_t id;
+};
+
+struct ksu_kpm_control_module_cmd {
+    int32_t cmd;
+    void *arg;
+};
+
+struct ksu_kpm_module_info {
+    int32_t id;
+    char name[128];
+    uint32_t version;
+    char author[128];
+    uint32_t flags;
+};
+
+/* KPM API */
+bool getKpmModuleList(struct getKpmModuleList *list);
+bool getKpmModuleCount(int &count);
+bool unloadKpmModule(int id);
+bool loadKpmModule(int id);
+long controlKpmModule(int cmd, void *arg);
+bool getKpmModuleInfo(int id, struct ksu_kpm_module_info *info);
 
 #endif //KERNELSU_KSU_H
