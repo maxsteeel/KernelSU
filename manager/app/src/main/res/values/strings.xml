@@ -28,6 +28,36 @@
     <string name="module_sort_action_first">Action first</string>
     <string name="module_sort_enabled_first">Enabled first</string>
     <string name="confirm">Confirm</string>
+
+    <!-- KPM (Kernel Patch Module) strings -->
+    <string name="kpm">KPM</string>
+    <string name="kpm_title">Kernel Patch Module</string>
+    <string name="kpm_empty">No KPM modules loaded</string>
+    <string name="kpm_load">Load Module</string>
+    <string name="kpm_unload">Unload Module</string>
+    <string name="kpm_control">Control Module</string>
+    <string name="kpm_info">Module Info</string>
+    <string name="kpm_name">Name</string>
+    <string name="kpm_version">Version</string>
+    <string name="kpm_author">Author</string>
+    <string name="kpm_description">Description</string>
+    <string name="kpm_license">License</string>
+    <string name="kpm_size">Size</string>
+    <string name="kpm_ref_count">Reference Count</string>
+    <string name="kpm_state">State</string>
+    <string name="kpm_state_loaded">Loaded</string>
+    <string name="kpm_state_unloaded">Unloaded</string>
+    <string name="kpm_state_error">Error</string>
+    <string name="kpm_load_success">Module loaded successfully</string>
+    <string name="kpm_load_failed">Failed to load module</string>
+    <string name="kpm_unload_success">Module unloaded successfully</string>
+    <string name="kpm_unload_failed">Failed to unload module</string>
+    <string name="kpm_unload_confirm">Are you sure you want to unload module %s?</string>
+    <string name="kpm_select_file">Select KPM file</string>
+    <string name="kpm_loading">Loading KPM modules...</string>
+    <string name="kpm_refresh">Refresh KPM list</string>
+    <string name="kpm_no_permission">No permission to access KPM functionality</string>
+
     <string name="uninstall">Uninstall</string>
     <string name="module_install">Install</string>
     <string name="install">Install</string>

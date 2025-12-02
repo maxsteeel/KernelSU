@@ -27,7 +27,9 @@ object Natives {
     init {
         System.loadLibrary("kernelsu")
     }
-
+    
+    // become root manager, return true if success.
+    external fun becomeManager(pkg: String?): Boolean
     val version: Int
         external get
 
@@ -95,11 +97,48 @@ object Natives {
     external fun isAvcSpoofEnabled(): Boolean
     external fun setAvcSpoofEnabled(enabled: Boolean): Boolean
 
+    // KPM (Kernel Package Manager) functions
     /**
-     * Check if the KPM (Kernel Package Manager) is enabled.
-     * @return true if KPM is enabled, false otherwise.
+     * Get the number of loaded KPM modules.
+     * @return number of KPM modules, or -1 if error
      */
-    external fun isKPMEnabled(): Boolean
+    external fun getKpmModuleCount(): Int
+
+    /**
+     * Get list of loaded KPM modules.
+     * @return array of KPM module names, or empty array if error
+     */
+    external fun getKpmModuleList(): Array<String>
+
+    /**
+     * Get information about a specific KMP module.
+     * @param name module name
+     * @return KPM module info, or null if not found
+     */
+    external fun getKpmModuleInfo(name: String): KpmModuleInfo?
+
+    /**
+     * Load a KPM module from file.
+     * @param path path to the KMP module file
+     * @return true if successful, false otherwise
+     */
+    external fun loadKpmModule(path: String): Boolean
+
+    /**
+     * Unload a KPM module.
+     * @param name module name
+     * @return true if successful, false otherwise
+     */
+    external fun unloadKpmModule(name: String): Boolean
+
+    /**
+     * Control a KPM module with specific command.
+     * @param name module name
+     * @param cmd control command
+     * @param arg command argument
+     * @return control result, or -1 if error
+     */
+    external fun controlKpmModule(name: String, cmd: Int, arg: Long): Long
 
     private const val NON_ROOT_DEFAULT_PROFILE_KEY = "$"
     private const val NOBODY_UID = 9999
@@ -124,6 +163,20 @@ object Natives {
     fun requireNewKernel(): Boolean {
         return version != -1 && version < MINIMAL_SUPPORTED_KERNEL
     }
+
+    @Immutable
+    @Parcelize
+    @Keep
+    data class KpmModuleInfo(
+        val name: String,
+        val version: String,
+        val author: String,
+        val description: String,
+        val license: String,
+        val state: Int, // 0: loaded, 1: unloaded, 2: error
+        val size: Long,
+        val refCount: Int
+    ) : Parcelable
 
     @Immutable
     @Parcelize
