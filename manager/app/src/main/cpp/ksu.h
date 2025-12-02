@@ -9,6 +9,8 @@
 #include <sys/ioctl.h>
 #include <utility>
 
+bool become_manager(const char *);
+
 uint32_t get_version();
 
 bool uid_should_umount(int uid);
@@ -81,6 +83,7 @@ int get_app_profile(app_profile *profile);
 
 // Feature IDs
 enum ksu_feature_id {
+    KSU_FEATURE_BECOME_MANAGER = 1,
     KSU_FEATURE_SU_COMPAT = 0,
     KSU_FEATURE_KERNEL_UMOUNT = 1,
     KSU_FEATURE_ENHANCED_SECURITY = 2,

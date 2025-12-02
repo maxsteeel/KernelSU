@@ -74,6 +74,19 @@ static int ksuctl(unsigned long op, Args &&... args) {
     return ioctl(fd, op, std::forward<Args>(args)...);
 }
 
+bool become_manager(const char* pkg) {
+    char param[128];
+    uid_t uid = getuid();
+    uint32_t userId = uid / 100000;
+    if (userId == 0) {
+        sprintf(param, "/data/data/%s", pkg);
+    } else {
+        snprintf(param, sizeof(param), "/data/user/%d/%s", userId, pkg);
+    }
+
+    return ksuctl(KSU_FEATURE_BECOME_MANAGER, param);
+}
+
 static struct ksu_get_info_cmd g_version {};
 
 struct ksu_get_info_cmd get_info() {
