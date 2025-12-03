@@ -74,12 +74,6 @@ jobs:
         if: ${{ matrix.custom_package }}
         run: bash custom.sh
 
-      - name: Revert KowSU
-        if: ${{ !matrix.custom_package }}
-        run: |
-          cd ..
-          curl -LSs https://github.com/KOWX712/KernelSU/commit/1cd67a1199e4a692399da28da16312aafaf9b427.patch | git apply --whitespace=fix
-
       - name: Write key
         if: ${{ github.event_name != 'pull_request' || github.ref_type == 'tag' }}
         run: |
