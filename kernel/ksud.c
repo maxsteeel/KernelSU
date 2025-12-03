@@ -26,6 +26,10 @@
 #include "selinux/selinux.h"
 #include "throne_tracker.h"
 
+#ifndef TWA_RESUME
+#define TWA_RESUME true // in <= 5.4 boolean, in >= 5.10 enum
+#endif
+
 bool ksu_module_mounted __read_mostly = false;
 bool ksu_boot_completed __read_mostly = false;
 

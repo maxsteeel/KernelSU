@@ -17,6 +17,10 @@
 #include "feature.h"
 #include "ksud.h"
 
+#ifndef TWA_RESUME
+#define TWA_RESUME true // in <= 5.4 boolean, in >= 5.10 enum
+#endif
+
 static bool ksu_kernel_umount_enabled = true;
 
 static int kernel_umount_feature_get(u64 *value)

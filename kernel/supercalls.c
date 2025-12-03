@@ -27,6 +27,10 @@
 #include "file_wrapper.h"
 #include "syscall_hook_manager.h"
 
+#ifndef TWA_RESUME
+#define TWA_RESUME true // in <= 5.4 boolean, in >= 5.10 enum
+#endif
+
 // Permission check functions
 bool only_manager(void)
 {

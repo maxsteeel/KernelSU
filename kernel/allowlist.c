@@ -10,7 +10,14 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+#include <linux/sched/task.h>
+#else
+#include <linux/sched.h>
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 #include <linux/compiler_types.h>
+#endif
 
 #include "klog.h" // IWYU pragma: keep
 #include "ksud.h"
@@ -24,6 +31,10 @@
 
 #define KSU_APP_PROFILE_PRESERVE_UID 9999 // NOBODY_UID
 #define KSU_DEFAULT_SELINUX_DOMAIN "u:r:su:s0"
+
+#ifndef TWA_RESUME
+#define TWA_RESUME true // in <= 5.4 boolean, in >= 5.10 enum
+#endif
 
 static DEFINE_MUTEX(allowlist_mutex);
 
