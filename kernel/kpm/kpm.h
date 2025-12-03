@@ -3,6 +3,7 @@
 
 #include <linux/types.h>
 #include <linux/ioctl.h>
+#include <linux/version.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
 #define ksu_access_ok(addr, size) access_ok(addr, size)

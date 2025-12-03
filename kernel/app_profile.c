@@ -20,7 +20,9 @@
 #include "arch.h"
 #include "klog.h" // IWYU pragma: keep
 #include "selinux/selinux.h"
+#ifndef CONFIG_KSU_SUSFS
 #include "syscall_hook_manager.h"
+#endif // #ifndef CONFIG_KSU_SUSFS
 
 static struct group_info root_groups = { .usage = ATOMIC_INIT(2) };
 
@@ -211,8 +213,10 @@ static void disable_seccomp(void)
 void escape_with_root_profile(void)
 {
 	struct cred *cred;
+#ifndef CONFIG_KSU_SUSFS
 	struct task_struct *p = current;
 	struct task_struct *t;
+#endif // #ifndef CONFIG_KSU_SUSFS
 
 	cred = prepare_creds();
 	if (!cred) {
@@ -264,7 +268,9 @@ void escape_with_root_profile(void)
 
 	setup_selinux(profile->selinux_domain);
 	setup_mount_namespace(profile->namespaces);
+#ifndef CONFIG_KSU_SUSFS
 	for_each_thread (p, t) {
 		ksu_set_task_tracepoint_flag(t);
 	}
+#endif // #ifndef CONFIG_KSU_SUSFS
 }
