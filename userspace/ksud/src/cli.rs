@@ -77,6 +77,13 @@ enum Commands {
         #[command(subcommand)]
         command: BootInfo,
     },
+    /// KPM module manager
+    #[cfg(target_arch = "aarch64")]
+    Kpm {
+        #[command(subcommand)]
+        command: kpm_cmd::Kpm,
+    },
+
     /// For developers
     Debug {
         #[command(subcommand)]
@@ -397,6 +404,30 @@ enum UmountOp {
     Wipe,
 }
 
+#[cfg(target_arch = "aarch64")]
+mod kpm_cmd {
+    use clap::Subcommand;
+    use std::path::PathBuf;
+
+    #[derive(Subcommand, Debug)]
+    pub enum Kpm {
+        /// Load a KPM module: load <path> [args]
+        Load { path: PathBuf, args: Option<String> },
+        /// Unload a KPM module: unload <name>
+        Unload { name: String },
+        /// Get number of loaded modules
+        Num,
+        /// List loaded KPM modules
+        List,
+        /// Get info of a KPM module: info <name>
+        Info { name: String },
+        /// Send control command to a KPM module: control <name> <args>
+        Control { name: String, args: String },
+        /// Print KPM Loader version
+        Version,
+    }
+}
+
 pub fn run() -> Result<()> {
     #[cfg(target_os = "android")]
     android_logger::init_once(
@@ -639,6 +670,25 @@ pub fn run() -> Result<()> {
             Kernel::NotifyModuleMounted => {
                 ksucalls::report_module_mounted();
                 Ok(())
+            }
+        },
+        #[cfg(target_arch = "aarch64")]
+        Commands::Kpm { command } => {
+            use crate::cli::kpm_cmd::Kpm;
+            match command {
+                Kpm::Load { path, args } => {
+                    crate::kpm::kpm_load(path.to_str().unwrap(), args.as_deref())
+                }
+                Kpm::Unload { name } => crate::kpm::kpm_unload(&name),
+                Kpm::Num => crate::kpm::kpm_num().map(|_| ()),
+                Kpm::List => crate::kpm::kpm_list(),
+                Kpm::Info { name } => crate::kpm::kpm_info(&name),
+                Kpm::Control { name, args } => {
+                    let ret = crate::kpm::kpm_control(&name, &args)?;
+                    println!("{ret}");
+                    Ok(())
+                }
+                Kpm::Version => crate::kpm::kpm_version_loader(),
             }
         },
     };

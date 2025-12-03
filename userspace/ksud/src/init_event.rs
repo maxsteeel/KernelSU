@@ -2,6 +2,8 @@ use anyhow::{Context, Result};
 use log::{info, warn};
 use std::path::Path;
 
+#[cfg(target_arch = "aarch64")]
+use crate::kpm;
 use crate::module::{handle_updated_modules, prune_modules};
 use crate::utils::is_safe_mode;
 use crate::{
@@ -83,6 +85,16 @@ pub fn on_post_data_fs() -> Result<()> {
         warn!("init features failed: {e}");
     }
 
+    #[cfg(target_arch = "aarch64")]
+    if let Err(e) = kpm::start_kpm_watcher() {
+        warn!("KPM: Failed to start KPM watcher: {e}");
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    if let Err(e) = kpm::load_kpm_modules() {
+        warn!("KPM: Failed to load KPM modules: {e}");
+    }
+    
     // execute metamodule post-fs-data script first (priority)
     if let Err(e) = metamodule::exec_stage_script("post-fs-data", true) {
         warn!("exec metamodule post-fs-data script failed: {e}");

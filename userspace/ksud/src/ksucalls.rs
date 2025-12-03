@@ -153,7 +153,7 @@ fn init_driver_fd() -> Option<RawFd> {
 
 // ioctl wrapper using libc
 #[cfg(any(target_os = "linux", target_os = "android"))]
-fn ksuctl<T>(request: u32, arg: *mut T) -> std::io::Result<i32> {
+pub fn ksuctl<T>(request: u32, arg: *mut T) -> std::io::Result<i32> {
     use std::io;
 
     let fd = *DRIVER_FD.get_or_init(|| init_driver_fd().unwrap_or(-1));
@@ -171,7 +171,7 @@ fn ksuctl<T>(request: u32, arg: *mut T) -> std::io::Result<i32> {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-fn ksuctl<T>(_request: u32, _arg: *mut T) -> std::io::Result<i32> {
+pub fn ksuctl<T>(_request: u32, _arg: *mut T) -> std::io::Result<i32> {
     Err(std::io::Error::from_raw_os_error(libc::ENOSYS))
 }
 
